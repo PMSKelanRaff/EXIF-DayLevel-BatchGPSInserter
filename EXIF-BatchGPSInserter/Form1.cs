@@ -50,22 +50,38 @@ namespace EXIF_BatchGPSInserter
                     // Read and process the file
                     var points = new List<GpsPoint>();
                     var lines = File.ReadAllLines(openFileDialog.FileName);
+                    var headings = new List<Tuple<double, double>>();
 
+                    // Parse headings from 5420 lines
+                    foreach (var line in lines)
+                    {
+                        var parts = line.Split(',');
+                        if (parts.Length > 6 && parts[0].StartsWith("5420"))
+                        {
+                            if (double.TryParse(parts[1], out double distanceFeet) &&
+                                double.TryParse(parts[6], out double heading))
+                            {
+                                // Place your headings.Add here:
+                                headings.Add(Tuple.Create(distanceFeet * 0.3048, heading));
+                            }
+                        }
+                    }
+
+                    // Parse GPS points from 5280 lines
                     foreach (var line in lines)
                     {
                         var parts = line.Split(',');
                         if (parts.Length > 6 && parts[0].StartsWith("5280"))
                         {
-                            // Parse distance (feet), lat, long
                             if (double.TryParse(parts[1], out double distanceFeet) &&
                                 double.TryParse(parts[5], out double lat) &&
                                 double.TryParse(parts[6], out double lng))
                             {
                                 points.Add(new GpsPoint
                                 {
-                                    DistanceMeters = distanceFeet * 0.3048, // feet to meters
+                                    DistanceMeters = distanceFeet * 0.3048,
                                     Latitude = lat,
-                                    Longitude = lng
+                                    Longitude = lng,
                                 });
                             }
                         }
@@ -73,6 +89,16 @@ namespace EXIF_BatchGPSInserter
 
                     // Interpolate to 5 meter intervals
                     var interpolated = InterpolatePoints(points, 5.0);
+
+                    // Assign closest heading to each interpolated point
+                    foreach (var pt in interpolated)
+                    {
+                        if (headings.Count > 0)
+                        {
+                            var closest = headings.OrderBy(h => Math.Abs(h.Item1 - pt.DistanceMeters)).First();
+                            pt.Heading = closest.Item2;
+                        }
+                    }
 
                     // Display in DataGridView
                     RSPdataGridView.DataSource = interpolated;
@@ -95,6 +121,7 @@ namespace EXIF_BatchGPSInserter
             else
                 MessageBox.Show("No images were found or processed.");
         }
+
         private List<GpsPoint> InterpolatePoints(List<GpsPoint> points, double intervalMeters)
         {
             var result = new List<GpsPoint>();
@@ -140,6 +167,7 @@ namespace EXIF_BatchGPSInserter
 
             return result;
         }
+
         private int ProcessImagesAndWriteExif(List<GpsPoint> interpolated)
         {
             string rootFolder = folderTextBox.Text;
@@ -219,7 +247,6 @@ namespace EXIF_BatchGPSInserter
             return processedCount;
         }
 
-        // Placeholder for EXIF writing logic
         private void WriteGpsToExif(string imagePath, GpsPoint gps)
         {
             try
@@ -239,23 +266,26 @@ namespace EXIF_BatchGPSInserter
 
                 // Check if all GPS tags already exist
                 var latProp = FindProperty(ExifLibrary.ExifTag.GPSLatitude);
-                var latRefProp = FindProperty(ExifLibrary.ExifTag.GPSImgDirection);
+                var latRefProp = FindProperty(ExifLibrary.ExifTag.GPSLatitudeRef);
                 var lngProp = FindProperty(ExifLibrary.ExifTag.GPSLongitude);
                 var lngRefProp = FindProperty(ExifLibrary.ExifTag.GPSLongitudeRef);
+                var imgDirProp = FindProperty(ExifLibrary.ExifTag.GPSImgDirection);
+                var imgDirRefProp = FindProperty(ExifLibrary.ExifTag.GPSImgDirectionRef);
 
-                if (latProp != null && latRefProp != null && lngProp != null && lngRefProp != null)
+                if (latProp != null && latRefProp != null && lngProp != null && lngRefProp != null
+                    && imgDirProp != null && imgDirRefProp != null)
                 {
                     // All tags are present, skip writing
                     return;
                 }
 
-
                 // Remove existing properties to avoid duplicates
-                // **Note:** This avoids file corruption issues
                 if (latProp != null) file.Properties.Remove(latProp);
                 if (latRefProp != null) file.Properties.Remove(latRefProp);
                 if (lngProp != null) file.Properties.Remove(lngProp);
                 if (lngRefProp != null) file.Properties.Remove(lngRefProp);
+                if (imgDirProp != null) file.Properties.Remove(imgDirProp);
+                if (imgDirRefProp != null) file.Properties.Remove(imgDirRefProp);
 
                 // Convert decimal degrees to degrees, minutes, seconds
                 double lat = gps.Latitude;
@@ -277,6 +307,11 @@ namespace EXIF_BatchGPSInserter
                 file.Properties.Add(ExifLibrary.ExifTag.GPSLongitude, lngDeg, lngMin, (float)lngSec);
                 file.Properties.Add(ExifLibrary.ExifTag.GPSLongitudeRef, gps.LongitudeDirection);
 
+                // Add GPSImgDirection and GPSImgDirectionRef
+                float imgDirection = gps.Heading.HasValue ? (float)gps.Heading.Value : 0.0f;
+                file.Properties.Add(ExifLibrary.ExifTag.GPSImgDirection, imgDirection);
+                file.Properties.Add(ExifLibrary.ExifTag.GPSImgDirectionRef, "T"); // "T" for true north, "M" for magnetic north
+
                 // Save changes (overwrite original)
                 file.Save(imagePath);
             }
@@ -285,19 +320,41 @@ namespace EXIF_BatchGPSInserter
                 MessageBox.Show($"Failed to write EXIF for {imagePath}: {ex.Message}");
             }
         }
+
         private void PrintGpsImgDirection(string imagePath)
         {
             try
             {
                 var file = ExifLibrary.ImageFile.FromFile(imagePath);
 
-                // Try to find the GPSImgDirection property
+                // Find the GPSImgDirection property
                 var directionProp = file.Properties
-                    .FirstOrDefault(p => p.Tag == ExifLibrary.ExifTag.GPSLatitudeRef);
+                    .FirstOrDefault(p => p.Tag == ExifLibrary.ExifTag.GPSImgDirection);
 
                 if (directionProp != null)
                 {
-                    MessageBox.Show($"GPSImgDirection for {Path.GetFileName(imagePath)}: {directionProp.Value}");
+                    var value = directionProp.Value;
+                    double headingValue;
+
+                    // ExifLibrary stores rational as ExifRational or ExifURational
+                    if (value is ExifLibrary.ExifURational urational)
+                    {
+                        headingValue = urational.ToFloat(); 
+                    }
+                    else if (value is float f)
+                    {
+                        headingValue = f;
+                    }
+                    else if (value is double d)
+                    {
+                        headingValue = d;
+                    }
+                    else
+                    {
+                        headingValue = Convert.ToDouble(value);
+                    }
+
+                    MessageBox.Show($"GPSImgDirection for {Path.GetFileName(imagePath)}: {headingValue:0.##}°");
                 }
                 else
                 {
