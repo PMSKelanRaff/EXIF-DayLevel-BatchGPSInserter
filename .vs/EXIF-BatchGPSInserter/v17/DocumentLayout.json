@@ -1,0 +1,57 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\KelanRafferty\\source\\repos\\EXIF-BatchGPSInserter\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{C642A5B9-660A-4B6D-B20E-D8AEB3C5890B}|EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter.csproj|c:\\users\\kelanrafferty\\source\\repos\\exif-batchgpsinserter\\exif-batchgpsinserter\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{C642A5B9-660A-4B6D-B20E-D8AEB3C5890B}|EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter.csproj|solutionrelative:exif-batchgpsinserter\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{C642A5B9-660A-4B6D-B20E-D8AEB3C5890B}|EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter.csproj|C:\\Users\\KelanRafferty\\source\\repos\\EXIF-BatchGPSInserter\\exif-batchgpsinserter\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{C642A5B9-660A-4B6D-B20E-D8AEB3C5890B}|EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter.csproj|solutionrelative:exif-batchgpsinserter\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Form1.cs",
+              "DocumentMoniker": "C:\\Users\\KelanRafferty\\source\\repos\\EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter\\Form1.cs",
+              "RelativeDocumentMoniker": "EXIF-BatchGPSInserter\\Form1.cs",
+              "ToolTip": "C:\\Users\\KelanRafferty\\source\\repos\\EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter\\Form1.cs",
+              "RelativeToolTip": "EXIF-BatchGPSInserter\\Form1.cs",
+              "ViewState": "AgIAAE0AAAAAAAAAAAD4v14AAAAQAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-25T11:56:41.215Z",
+              "IsPinned": true,
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Form1.cs [Design]",
+              "DocumentMoniker": "C:\\Users\\KelanRafferty\\source\\repos\\EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter\\Form1.cs",
+              "RelativeDocumentMoniker": "EXIF-BatchGPSInserter\\Form1.cs",
+              "ToolTip": "C:\\Users\\KelanRafferty\\source\\repos\\EXIF-BatchGPSInserter\\EXIF-BatchGPSInserter\\Form1.cs [Design]",
+              "RelativeToolTip": "EXIF-BatchGPSInserter\\Form1.cs [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-25T11:33:29.318Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
