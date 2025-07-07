@@ -30,64 +30,14 @@ namespace EXIF_BatchGPSInserter
         /// </summary>
         private void InitializeComponent()
         {
-            this.RSPdataGridView = new System.Windows.Forms.DataGridView();
-            this.SelectRSPBtn = new System.Windows.Forms.Button();
-            this.rspTextBox = new System.Windows.Forms.TextBox();
-            this.folderTextBox = new System.Windows.Forms.TextBox();
-            this.SelectFolderBtn = new System.Windows.Forms.Button();
             this.Startbtn = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
-            this.AppendToXmlBtn = new System.Windows.Forms.Button();
             this.camFoldersCheckedListBox = new System.Windows.Forms.CheckedListBox();
-            ((System.ComponentModel.ISupportInitialize)(this.RSPdataGridView)).BeginInit();
             this.SuspendLayout();
-            // 
-            // RSPdataGridView
-            // 
-            this.RSPdataGridView.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.RSPdataGridView.Location = new System.Drawing.Point(13, 13);
-            this.RSPdataGridView.Name = "RSPdataGridView";
-            this.RSPdataGridView.Size = new System.Drawing.Size(1039, 418);
-            this.RSPdataGridView.TabIndex = 0;
-            this.RSPdataGridView.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.RSPdataGridView_CellContentClick);
-            // 
-            // SelectRSPBtn
-            // 
-            this.SelectRSPBtn.Location = new System.Drawing.Point(508, 475);
-            this.SelectRSPBtn.Name = "SelectRSPBtn";
-            this.SelectRSPBtn.Size = new System.Drawing.Size(84, 23);
-            this.SelectRSPBtn.TabIndex = 1;
-            this.SelectRSPBtn.Text = "Select RSP File";
-            this.SelectRSPBtn.UseVisualStyleBackColor = true;
-            this.SelectRSPBtn.Click += new System.EventHandler(this.SelectRSPBtn_Click);
-            // 
-            // rspTextBox
-            // 
-            this.rspTextBox.Location = new System.Drawing.Point(33, 475);
-            this.rspTextBox.Name = "rspTextBox";
-            this.rspTextBox.Size = new System.Drawing.Size(469, 20);
-            this.rspTextBox.TabIndex = 2;
-            // 
-            // folderTextBox
-            // 
-            this.folderTextBox.Location = new System.Drawing.Point(33, 449);
-            this.folderTextBox.Name = "folderTextBox";
-            this.folderTextBox.Size = new System.Drawing.Size(469, 20);
-            this.folderTextBox.TabIndex = 3;
-            // 
-            // SelectFolderBtn
-            // 
-            this.SelectFolderBtn.Location = new System.Drawing.Point(508, 449);
-            this.SelectFolderBtn.Name = "SelectFolderBtn";
-            this.SelectFolderBtn.Size = new System.Drawing.Size(84, 23);
-            this.SelectFolderBtn.TabIndex = 4;
-            this.SelectFolderBtn.Text = "Select Folder";
-            this.SelectFolderBtn.UseVisualStyleBackColor = true;
-            this.SelectFolderBtn.Click += new System.EventHandler(this.SelectFolderBtn_Click);
             // 
             // Startbtn
             // 
-            this.Startbtn.Location = new System.Drawing.Point(977, 521);
+            this.Startbtn.Location = new System.Drawing.Point(269, 138);
             this.Startbtn.Name = "Startbtn";
             this.Startbtn.Size = new System.Drawing.Size(75, 23);
             this.Startbtn.TabIndex = 5;
@@ -97,61 +47,36 @@ namespace EXIF_BatchGPSInserter
             // 
             // progressBar1
             // 
-            this.progressBar1.Location = new System.Drawing.Point(814, 492);
+            this.progressBar1.Location = new System.Drawing.Point(12, 138);
             this.progressBar1.Name = "progressBar1";
             this.progressBar1.Size = new System.Drawing.Size(238, 23);
             this.progressBar1.TabIndex = 6;
             // 
-            // AppendToXmlBtn
-            // 
-            this.AppendToXmlBtn.Location = new System.Drawing.Point(896, 521);
-            this.AppendToXmlBtn.Name = "AppendToXmlBtn";
-            this.AppendToXmlBtn.Size = new System.Drawing.Size(75, 23);
-            this.AppendToXmlBtn.TabIndex = 7;
-            this.AppendToXmlBtn.Text = "Export XML";
-            this.AppendToXmlBtn.UseVisualStyleBackColor = true;
-            this.AppendToXmlBtn.Click += new System.EventHandler(this.AppendToXmlBtn_Click);
-            // 
             // camFoldersCheckedListBox
             // 
             this.camFoldersCheckedListBox.FormattingEnabled = true;
-            this.camFoldersCheckedListBox.Location = new System.Drawing.Point(609, 449);
+            this.camFoldersCheckedListBox.Location = new System.Drawing.Point(12, 12);
             this.camFoldersCheckedListBox.Name = "camFoldersCheckedListBox";
-            this.camFoldersCheckedListBox.Size = new System.Drawing.Size(120, 94);
+            this.camFoldersCheckedListBox.Size = new System.Drawing.Size(218, 64);
             this.camFoldersCheckedListBox.TabIndex = 8;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1064, 556);
+            this.ClientSize = new System.Drawing.Size(357, 169);
             this.Controls.Add(this.camFoldersCheckedListBox);
-            this.Controls.Add(this.AppendToXmlBtn);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.Startbtn);
-            this.Controls.Add(this.SelectFolderBtn);
-            this.Controls.Add(this.folderTextBox);
-            this.Controls.Add(this.rspTextBox);
-            this.Controls.Add(this.SelectRSPBtn);
-            this.Controls.Add(this.RSPdataGridView);
             this.Name = "Form1";
             this.Text = "Form1";
-            ((System.ComponentModel.ISupportInitialize)(this.RSPdataGridView)).EndInit();
             this.ResumeLayout(false);
-            this.PerformLayout();
 
         }
 
         #endregion
-
-        private System.Windows.Forms.DataGridView RSPdataGridView;
-        private System.Windows.Forms.Button SelectRSPBtn;
-        private System.Windows.Forms.TextBox rspTextBox;
-        private System.Windows.Forms.TextBox folderTextBox;
-        private System.Windows.Forms.Button SelectFolderBtn;
         private System.Windows.Forms.Button Startbtn;
         private System.Windows.Forms.ProgressBar progressBar1;
-        private System.Windows.Forms.Button AppendToXmlBtn;
         private System.Windows.Forms.CheckedListBox camFoldersCheckedListBox;
     }
 }
