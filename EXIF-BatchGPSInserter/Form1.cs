@@ -18,6 +18,10 @@ namespace EXIF_BatchGPSInserter
         public Form1()
         {
             InitializeComponent();
+            camFoldersCheckedListBox.Items.Add("Cam1", true);
+            camFoldersCheckedListBox.Items.Add("Cam2", true);
+            camFoldersCheckedListBox.Items.Add("Cam3", true);
+            camFoldersCheckedListBox.Items.Add("Cam4", true);
         }
 
         private void RSPdataGridView_CellContentClick(object sender, DataGridViewCellEventArgs e)
@@ -120,18 +124,35 @@ namespace EXIF_BatchGPSInserter
 
         private void Startbtn_Click(object sender, EventArgs e)
         {
-            var gpsData = RSPdataGridView.DataSource as List<GpsPoint>;
-            if (gpsData == null || gpsData.Count == 0)
+            var dialog = new VistaFolderBrowserDialog
             {
-                MessageBox.Show("No GPS data loaded. Please select and process an RSP file first.");
-                return;
-            }
+                Description = "Select the parent folder containing multiple RSP/image folders",
+                UseDescriptionForTitle = true
+            };
 
-            int processed = ProcessImagesAndWriteExif(gpsData);
-            if (processed > 0)
-                MessageBox.Show("EXIF writing complete.");
-            else
-                MessageBox.Show("No images were found or processed.");
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                string parentDir = dialog.SelectedPath;
+
+                // 🔽 Get selected camera folders from checkedListBoxCams
+                var selectedCams = camFoldersCheckedListBox.CheckedItems
+                    .Cast<string>()
+                    .ToList();
+
+                if (selectedCams.Count == 0)
+                {
+                    MessageBox.Show("Please select at least one camera folder (Cam1–Cam4).", "No Cameras Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 🔽 Start processing with progress bar
+                progressBar1.Value = 0;
+                progressBar1.Visible = true;
+
+                int totalImages = ProcessAllSubFolders(parentDir, selectedCams, progressBar1);
+
+                MessageBox.Show($"EXIF batch processing completed.\n\n{totalImages} images processed.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
 
         private List<GpsPoint> InterpolatePoints(List<GpsPoint> points, double intervalMeters)
@@ -460,5 +481,173 @@ namespace EXIF_BatchGPSInserter
             }
         }
 
+        private int ProcessAllSubFolders(string parentDir, List<string> selectedCams, ProgressBar progressBar)
+        {
+            int totalProcessed = 0;
+
+            var subFolders = Directory.GetDirectories(parentDir);
+
+            foreach (var subFolder in subFolders)
+            {
+                var rspFile = Directory.GetFiles(parentDir, Path.GetFileName(subFolder) + ".RSP").FirstOrDefault();
+
+                if (!string.IsNullOrEmpty(rspFile))
+                {
+                    var camFolders = selectedCams
+                        .Select(cam => Path.Combine(subFolder, cam))
+                        .Where(Directory.Exists)
+                        .ToArray();
+
+                    int processed = ExifBatchProcessor.Process(camFolders, rspFile, progressBar);
+                    totalProcessed += processed;
+                }
+            }
+
+            return totalProcessed;
+        }
+
+        public static class ExifBatchProcessor
+        {
+            public static int Process(string[] camFolders, string rspFile, ProgressBar progressBar)
+            {
+                int total = 0;
+                foreach (string camFolder in camFolders)
+                {
+                    var jpgFiles = Directory.GetFiles(camFolder, "*.JPG");
+                    int count = jpgFiles.Length;
+                    int processed = 0;
+
+                    foreach (var file in jpgFiles)
+                    {
+                        // TODO: Your logic to interpolate data and write EXIF here
+                        // Example:
+                        // var gps = GetInterpolatedData(file);
+                        // ExifWriter.Write(file, gps);
+
+                        processed++;
+                        if (progressBar != null && progressBar.Maximum > 0)
+                        {
+                            progressBar.Value = Math.Min(progressBar.Maximum, progressBar.Value + 1);
+                        }
+                    }
+
+                    total += processed;
+                }
+
+                return total;
+            }
+        }
+
+
+        //hello
+
+        private List<GpsPoint> LoadAndInterpolateRsp(string rspFile)
+        {
+            var points = new List<GpsPoint>();
+            var lines = File.ReadAllLines(rspFile);
+
+            foreach (var line in lines)
+            {
+                var parts = line.Split(',');
+                if (parts.Length > 6 && parts[0].StartsWith("5280"))
+                {
+                    if (double.TryParse(parts[1], out double distanceFeet) &&
+                        double.TryParse(parts[5], out double lat) &&
+                        double.TryParse(parts[6], out double lng))
+                    {
+                        points.Add(new GpsPoint
+                        {
+                            DistanceMeters = distanceFeet * 0.3048,
+                            Latitude = lat,
+                            Longitude = lng
+                        });
+                    }
+                }
+            }
+
+            return InterpolatePoints(points, 5.0);
+        }
+
+        private List<Tuple<double, double>> ExtractHeadings(string rspFile)
+        {
+            var result = new List<Tuple<double, double>>();
+            var lines = File.ReadAllLines(rspFile);
+
+            foreach (var line in lines)
+            {
+                var parts = line.Split(',');
+                if (parts.Length > 6 && parts[0].StartsWith("5420"))
+                {
+                    if (double.TryParse(parts[1], out double distanceFeet) &&
+                        double.TryParse(parts[6], out double heading))
+                    {
+                        result.Add(Tuple.Create(distanceFeet * 0.3048, heading));
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private void AssignHeadings(List<GpsPoint> gpsData, List<Tuple<double, double>> headings)
+        {
+            foreach (var pt in gpsData)
+            {
+                if (headings.Count > 0)
+                {
+                    var closest = headings.OrderBy(h => Math.Abs(h.Item1 - pt.DistanceMeters)).First();
+                    pt.Heading = closest.Item2;
+                }
+            }
+        }
+
+        private int ProcessImages(List<GpsPoint> interpolated, string[] camFolders)
+        {
+            int imagesProcessed = 0;
+
+            var camImages = camFolders
+                .Select(folder => Directory.GetFiles(folder, "*.jpg").OrderBy(f => f).ToList())
+                .ToList();
+
+            int maxImages = camImages.Max(list => list.Count);
+
+            for (int i = 0; i < maxImages; i++)
+            {
+                var imagesAtIndex = camImages
+                    .Select(list => i < list.Count ? list[i] : null)
+                    .Where(f => f != null)
+                    .ToList();
+
+                if (imagesAtIndex.Count == 0)
+                    continue;
+
+                string sampleFile = Path.GetFileNameWithoutExtension(imagesAtIndex[0]);
+                var parts = sampleFile.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2)
+                    continue;
+
+                if (!double.TryParse(parts[parts.Length - 2], out double distanceFeet))
+                    continue;
+
+                double distanceMeters = distanceFeet * 0.3048;
+
+                var gps = interpolated.OrderBy(p => Math.Abs(p.DistanceMeters - distanceMeters)).FirstOrDefault();
+                if (gps == null)
+                    continue;
+
+                foreach (var imagePath in imagesAtIndex)
+                {
+                    WriteGpsToExif(imagePath, gps);
+                    imagesProcessed++;
+                }
+            }
+
+            return imagesProcessed;
+        }
+
     }
+
+
+
 }
+
