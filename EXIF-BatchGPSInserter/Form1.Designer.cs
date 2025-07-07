@@ -38,6 +38,7 @@ namespace EXIF_BatchGPSInserter
             this.Startbtn = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.AppendToXmlBtn = new System.Windows.Forms.Button();
+            this.camFoldersCheckedListBox = new System.Windows.Forms.CheckedListBox();
             ((System.ComponentModel.ISupportInitialize)(this.RSPdataGridView)).BeginInit();
             this.SuspendLayout();
             // 
@@ -111,11 +112,20 @@ namespace EXIF_BatchGPSInserter
             this.AppendToXmlBtn.UseVisualStyleBackColor = true;
             this.AppendToXmlBtn.Click += new System.EventHandler(this.AppendToXmlBtn_Click);
             // 
+            // camFoldersCheckedListBox
+            // 
+            this.camFoldersCheckedListBox.FormattingEnabled = true;
+            this.camFoldersCheckedListBox.Location = new System.Drawing.Point(609, 449);
+            this.camFoldersCheckedListBox.Name = "camFoldersCheckedListBox";
+            this.camFoldersCheckedListBox.Size = new System.Drawing.Size(120, 94);
+            this.camFoldersCheckedListBox.TabIndex = 8;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1064, 556);
+            this.Controls.Add(this.camFoldersCheckedListBox);
             this.Controls.Add(this.AppendToXmlBtn);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.Startbtn);
@@ -142,6 +152,7 @@ namespace EXIF_BatchGPSInserter
         private System.Windows.Forms.Button Startbtn;
         private System.Windows.Forms.ProgressBar progressBar1;
         private System.Windows.Forms.Button AppendToXmlBtn;
+        private System.Windows.Forms.CheckedListBox camFoldersCheckedListBox;
     }
 }
 
