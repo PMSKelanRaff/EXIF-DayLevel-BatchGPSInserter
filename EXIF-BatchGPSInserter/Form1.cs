@@ -6,12 +6,15 @@ using System.Linq;
 using System.Windows.Forms;
 using Ookii.Dialogs.WinForms;
 using ExifLibrary;
+using System.Xml.Linq;
 
 
 namespace EXIF_BatchGPSInserter
 {
     public partial class Form1 : Form
     {
+        private List<Tuple<double, double>> headings = new List<Tuple<double, double>>();
+
         public Form1()
         {
             InitializeComponent();
@@ -50,7 +53,7 @@ namespace EXIF_BatchGPSInserter
                     // Read and process the file
                     var points = new List<GpsPoint>();
                     var lines = File.ReadAllLines(openFileDialog.FileName);
-                    var headings = new List<Tuple<double, double>>();
+                    headings.Clear();
 
                     // Parse headings from 5420 lines
                     foreach (var line in lines)
@@ -366,5 +369,84 @@ namespace EXIF_BatchGPSInserter
                 MessageBox.Show($"Error reading EXIF from {imagePath}: {ex.Message}");
             }
         }
+
+        private void AppendToXmlBtn_Click(object sender, EventArgs e)
+        {
+            // Get the GPS data from the DataGridView
+            var gpsData = RSPdataGridView.DataSource as List<GpsPoint>;
+            if (gpsData == null || gpsData.Count == 0)
+            {
+                MessageBox.Show("No GPS data loaded. Please select and process an RSP file first.");
+                return;
+            }
+
+            // Prompt user to select the directory containing the segment XML files
+            using (var dialog = new VistaFolderBrowserDialog())
+            {
+                dialog.Description = "Select the folder containing 10m segment XML files";
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    AddGpsDataToSegmentXmls(dialog.SelectedPath, gpsData);
+                    MessageBox.Show("GPS data added to segment XML files.");
+                }
+            }
+        }
+
+        private void AddGpsDataToSegmentXmls(string xmlDirectory, List<GpsPoint> gpsPoints)
+        {
+            // Get all XML files in the directory, sorted by their numeric suffix
+            var xmlFiles = Directory.GetFiles(xmlDirectory, "LcmsResult_*.xml")
+                .OrderBy(f =>
+                {
+                    var name = Path.GetFileNameWithoutExtension(f);
+                    var parts = name.Split('_');
+                    int num = 0;
+                    if (parts.Length > 1)
+                        int.TryParse(parts[1], out num);
+                    return num;
+                })
+                .ToList();
+
+            // Interpolate at 10m intervals (if not already)
+            var interpolated10m = InterpolatePoints(gpsPoints, 10.0);
+
+            //assign heading
+            foreach (var pt in interpolated10m)
+            {
+                if (headings.Count > 0)
+                {
+                    var closest = headings.OrderBy(h => Math.Abs(h.Item1 - pt.DistanceMeters)).First();
+                    pt.Heading = closest.Item2;
+                }
+            }
+
+
+            // For each XML file, add GPS data
+            for (int i = 0; i < xmlFiles.Count && i < interpolated10m.Count; i++)
+            {
+                var xmlPath = xmlFiles[i];
+                var gps = interpolated10m[i];
+
+                var doc = XDocument.Load(xmlPath);
+                var root = doc.Element("LcmsAnalyserResults");
+                if (root == null)
+                    continue;
+
+                var section = root.Element("RoadSectionInfo");
+                if (section == null)
+                    continue;
+
+                // Add or update GPS elements
+                section.SetElementValue("Latitude", gps.Latitude);
+                section.SetElementValue("LatitudeDirection", gps.LatitudeDirection);
+                section.SetElementValue("Longitude", gps.Longitude);
+                section.SetElementValue("LongitudeDirection", gps.LongitudeDirection);
+                section.SetElementValue("Heading", gps.Heading.HasValue ? gps.Heading.Value : 0.0);
+
+                doc.Save(xmlPath);
+            }
+        }
+
+       
     }
 }
