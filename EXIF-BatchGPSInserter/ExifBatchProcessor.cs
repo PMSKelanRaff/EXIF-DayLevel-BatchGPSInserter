@@ -80,11 +80,15 @@ namespace EXIF_BatchGPSInserter
 
                     if (progressBar != null && progressBar.Maximum > 0)
                     {
-                        int newValue = progressBar.Value + 1;
-                        if (newValue <= progressBar.Maximum && newValue >= progressBar.Minimum)
+                        int newValue = 0;
+                        progressBar.Invoke((MethodInvoker)(() =>
                         {
-                            progressBar.Value = newValue;
-                        }
+                            newValue = progressBar.Value + 1;
+                            if (newValue <= progressBar.Maximum && newValue >= progressBar.Minimum)
+                            {
+                                progressBar.Value = newValue;
+                            }
+                        }));
                     }
                 }
             }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Ookii.Dialogs.WinForms;
 
@@ -22,7 +23,7 @@ namespace EXIF_BatchGPSInserter
             camFoldersCheckedListBox.Items.Add("Cam4", true);
         }
 
-        private void Startbtn_Click(object sender, EventArgs e)
+        private async void Startbtn_Click(object sender, EventArgs e)
         {
             var dialog = new VistaFolderBrowserDialog
             {
@@ -34,10 +35,8 @@ namespace EXIF_BatchGPSInserter
             {
                 string parentDir = dialog.SelectedPath;
 
-                // Get selected camera folders from checkedListBoxCams
-                var selectedCams = camFoldersCheckedListBox.CheckedItems
-                    .Cast<string>()
-                    .ToList();
+                // Get selected camera folders
+                var selectedCams = camFoldersCheckedListBox.CheckedItems.Cast<string>().ToList();
 
                 if (selectedCams.Count == 0)
                 {
@@ -45,39 +44,63 @@ namespace EXIF_BatchGPSInserter
                     return;
                 }
 
-                // Start processing with progress bar
                 progressBar1.Value = 0;
                 progressBar1.Visible = true;
 
-                int totalImages = ProcessAllSubFolders(parentDir, selectedCams, progressBar1);
+                // Run EXIF processing in background thread
+                int totalImages = await Task.Run(() =>
+                {
+                    int total = 0;
+                    var subDirs = Directory.GetDirectories(parentDir);
+
+                    foreach (var subDir in subDirs)
+                    {
+                        string folderName = Path.GetFileName(subDir);
+                        string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+
+                        if (!File.Exists(rspPath))
+                            continue;
+
+                        // Get camera subfolders like Cam1–Cam4
+                        var camPaths = selectedCams
+                            .Select(cam => Path.Combine(subDir, cam))
+                            .Where(Directory.Exists)
+                            .ToArray();
+
+                        if (camPaths.Length == 0)
+                            continue;
+
+                        total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1);
+                    }
+
+                    return total;
+                });
 
                 MessageBox.Show($"EXIF batch processing completed.\n\n{totalImages} images processed.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
-        private int ProcessAllSubFolders(string parentDir, List<string> selectedCams, ProgressBar progressBar)
+        public static int ProcessAllRoutesInFolder(string parentFolder, ProgressBar progressBar)
         {
-            int totalProcessed = 0;
+            int totalWritten = 0;
 
-            var subFolders = Directory.GetDirectories(parentDir);
-
-            foreach (var subFolder in subFolders)
+            foreach (var routeFolder in Directory.GetDirectories(parentFolder))
             {
-                var rspFile = Directory.GetFiles(parentDir, Path.GetFileName(subFolder) + ".RSP").FirstOrDefault();
+                // Find the .RSP file
+                var rspFile = Directory.GetFiles(routeFolder, "*.RSP").FirstOrDefault();
+                if (rspFile == null) continue;
 
-                if (!string.IsNullOrEmpty(rspFile))
-                {
-                    var camFolders = selectedCams
-                        .Select(cam => Path.Combine(subFolder, cam))
-                        .Where(Directory.Exists)
-                        .ToArray();
+                // Find Cam1–Cam4 subfolders
+                var camFolders = Directory.GetDirectories(routeFolder)
+                                          .Where(dir => Path.GetFileName(dir).StartsWith("Cam"))
+                                          .ToArray();
 
-                    int processed = ExifBatchProcessor.Process(camFolders, rspFile, progressBar);
-                    totalProcessed += processed;
-                }
+                if (camFolders.Length == 0) continue;
+
+                totalWritten += ExifBatchProcessor.Process(camFolders, rspFile, progressBar);
             }
 
-            return totalProcessed;
+            return totalWritten;
         }
     }
 }
