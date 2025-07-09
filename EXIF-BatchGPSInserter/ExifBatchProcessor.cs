@@ -11,12 +11,14 @@ namespace EXIF_BatchGPSInserter
     {
         public static int Process(string[] camFolders, string rspFile, ProgressBar progressBar)
         {
+            bool forceUpdate = true;
+
             var gpsPoints = ParseRspFile(rspFile);
             if (gpsPoints.Count == 0) return 0;
 
-            var interpolated = InterpolateWithoutHeading(gpsPoints, 10.0);
+            var interpolated = InterpolateWithoutHeading(gpsPoints, 5.0);
             int total = 0;
-            int updateFrequency = 10; // only update every 10 images
+            int updateFrequency = 1; // only update every 1 images
             int imageCounter = 0;
 
             foreach (string camFolder in camFolders)
@@ -28,13 +30,14 @@ namespace EXIF_BatchGPSInserter
                 foreach (var imagePath in jpgFiles)
                 {
                     double imgDist = ExtractDistanceFromFilename(imagePath);
+                    imgDist *= 0.3048; // Convert feet to meters
                     var gps = interpolated.OrderBy(pt => Math.Abs(pt.DistanceMeters - imgDist)).First();
 
                     try
                     {
                         var file = ExifLibrary.ImageFile.FromFile(imagePath);
 
-                        if (HasGpsTags(file)) continue;
+                        if (!forceUpdate && HasGpsTags(file)) continue;
                         RemoveGpsTags(file);
 
                         double absLat = Math.Abs(gps.Latitude);
@@ -186,10 +189,9 @@ namespace EXIF_BatchGPSInserter
             if (points.Count == 0) return result;
 
             double current = 0.0;
-            double max = points.Last().DistanceMeters;
             int i = 0;
 
-            while (current <= max)
+            while (current <= points[points.Count - 2].DistanceMeters)
             {
                 while (i < points.Count - 1 && points[i + 1].DistanceMeters < current)
                     i++;
@@ -203,14 +205,20 @@ namespace EXIF_BatchGPSInserter
                 double lat = p1.Latitude + t * (p2.Latitude - p1.Latitude);
                 double lng = p1.Longitude + t * (p2.Longitude - p1.Longitude);
 
+                double? heading = null;
+                if (p1.Heading.HasValue && p2.Heading.HasValue)
+                {
+                    heading = p1.Heading + t * (p2.Heading.Value - p1.Heading.Value);
+                }
+
                 result.Add(new GpsPoint
                 {
                     DistanceMeters = current,
                     Latitude = lat,
                     LatitudeDirection = lat >= 0 ? "N" : "S",
                     Longitude = lng,
-                    LongitudeDirection = lng >= 0 ? "E" : "W"
-                    // Heading assigned later
+                    LongitudeDirection = lng >= 0 ? "E" : "W",
+                    Heading = heading
                 });
 
                 current += intervalMeters;
