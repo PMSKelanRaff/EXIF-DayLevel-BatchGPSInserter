@@ -16,6 +16,8 @@ namespace EXIF_BatchGPSInserter
 
             var interpolated = InterpolateWithoutHeading(gpsPoints, 10.0);
             int total = 0;
+            int updateFrequency = 10; // only update every 10 images
+            int imageCounter = 0;
 
             foreach (string camFolder in camFolders)
             {
@@ -26,50 +28,33 @@ namespace EXIF_BatchGPSInserter
                 foreach (var imagePath in jpgFiles)
                 {
                     double imgDist = ExtractDistanceFromFilename(imagePath);
-
-                    // Match to closest interpolated GPS point
                     var gps = interpolated.OrderBy(pt => Math.Abs(pt.DistanceMeters - imgDist)).First();
 
                     try
                     {
                         var file = ExifLibrary.ImageFile.FromFile(imagePath);
 
-                        // Skip if all GPS tags already exist
                         if (HasGpsTags(file)) continue;
-
-                        // Remove existing GPS tags to avoid duplicates
                         RemoveGpsTags(file);
 
-                        // Convert to absolute values for EXIF (numbers must be positive)
                         double absLat = Math.Abs(gps.Latitude);
                         double absLng = Math.Abs(gps.Longitude);
-                        float? absHeading = gps.Heading.HasValue && gps.Heading.Value >= 0
-                            ? (float?)gps.Heading.Value
-                            : null;
+                        float? absHeading = gps.Heading.HasValue && gps.Heading.Value >= 0 ? (float?)gps.Heading.Value : null;
 
-                        // Convert decimal degrees to degrees, minutes, seconds (using abs values)
-                        int latDeg, latMin;
-                        float latSec;
-                        ConvertToDMS(absLat, out latDeg, out latMin, out latSec);
+                        ConvertToDMS(absLat, out int latDeg, out int latMin, out float latSec);
+                        ConvertToDMS(absLng, out int lngDeg, out int lngMin, out float lngSec);
 
-                        int lngDeg, lngMin;
-                        float lngSec;
-                        ConvertToDMS(absLng, out lngDeg, out lngMin, out lngSec);
+                        file.Properties.Add(ExifTag.GPSLatitude, latDeg, latMin, latSec);
+                        file.Properties.Add(ExifTag.GPSLatitudeRef, gps.LatitudeDirection);
+                        file.Properties.Add(ExifTag.GPSLongitude, lngDeg, lngMin, lngSec);
+                        file.Properties.Add(ExifTag.GPSLongitudeRef, gps.LongitudeDirection);
 
-                        // Add GPS Latitude and Longitude tags with DMS values and direction strings
-                        file.Properties.Add(ExifLibrary.ExifTag.GPSLatitude, latDeg, latMin, latSec);
-                        file.Properties.Add(ExifLibrary.ExifTag.GPSLatitudeRef, gps.LatitudeDirection);
-                        file.Properties.Add(ExifLibrary.ExifTag.GPSLongitude, lngDeg, lngMin, lngSec);
-                        file.Properties.Add(ExifLibrary.ExifTag.GPSLongitudeRef, gps.LongitudeDirection);
-
-                        // Add GPS Image Direction and Reference if heading is available
                         if (absHeading.HasValue)
                         {
-                            file.Properties.Add(ExifLibrary.ExifTag.GPSImgDirection, absHeading.Value);
-                            file.Properties.Add(ExifLibrary.ExifTag.GPSImgDirectionRef, "T"); // True north
+                            file.Properties.Add(ExifTag.GPSImgDirection, absHeading.Value);
+                            file.Properties.Add(ExifTag.GPSImgDirectionRef, "T");
                         }
 
-                        // Save changes to the image file
                         file.Save(imagePath);
                         total++;
                     }
@@ -78,19 +63,25 @@ namespace EXIF_BatchGPSInserter
                         Console.WriteLine($"Failed to write EXIF for {imagePath}: {ex.Message}");
                     }
 
-                    if (progressBar != null && progressBar.Maximum > 0)
+                    imageCounter++;
+                    if (progressBar != null && imageCounter % updateFrequency == 0)
                     {
-                        int newValue = 0;
                         progressBar.Invoke((MethodInvoker)(() =>
                         {
-                            newValue = progressBar.Value + 1;
-                            if (newValue <= progressBar.Maximum && newValue >= progressBar.Minimum)
-                            {
-                                progressBar.Value = newValue;
-                            }
+                            if (progressBar.Value < progressBar.Maximum)
+                                progressBar.Value += updateFrequency;
                         }));
                     }
                 }
+            }
+
+            // Final adjustment in case we undershot
+            if (progressBar != null)
+            {
+                progressBar.Invoke((MethodInvoker)(() =>
+                {
+                    progressBar.Value = Math.Min(progressBar.Maximum, progressBar.Value + (imageCounter % updateFrequency));
+                }));
             }
 
             return total;
@@ -249,5 +240,6 @@ namespace EXIF_BatchGPSInserter
             // Fallback to zero if not enough numbers found
             return 0;
         }
+
     }
 }

@@ -31,53 +31,75 @@ namespace EXIF_BatchGPSInserter
                 UseDescriptionForTitle = true
             };
 
-            if (dialog.ShowDialog() == DialogResult.OK)
+            if (dialog.ShowDialog() != DialogResult.OK) return;
+
+            string parentDir = dialog.SelectedPath;
+
+            // Get selected camera folders
+            var selectedCams = camFoldersCheckedListBox.CheckedItems.Cast<string>().ToList();
+
+            if (selectedCams.Count == 0)
             {
-                string parentDir = dialog.SelectedPath;
+                MessageBox.Show("Please select at least one camera folder (Cam1–Cam4).", "No Cameras Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-                // Get selected camera folders
-                var selectedCams = camFoldersCheckedListBox.CheckedItems.Cast<string>().ToList();
+            progressBar1.Visible = true;
+            progressBar1.Value = 0;
 
-                if (selectedCams.Count == 0)
+            // Step 1: Count total JPG files across all subfolders
+            int totalFiles = 0;
+            var subDirs = Directory.GetDirectories(parentDir);
+
+            foreach (var subDir in subDirs)
+            {
+                string folderName = Path.GetFileName(subDir);
+                string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+
+                if (!File.Exists(rspPath))
+                    continue;
+
+                var camPaths = selectedCams
+                    .Select(cam => Path.Combine(subDir, cam))
+                    .Where(Directory.Exists)
+                    .ToArray();
+
+                foreach (var camPath in camPaths)
                 {
-                    MessageBox.Show("Please select at least one camera folder (Cam1–Cam4).", "No Cameras Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    totalFiles += Directory.GetFiles(camPath, "*.JPG").Length;
+                }
+            }
+
+            progressBar1.Maximum = totalFiles;
+
+            // Step 2: Run EXIF processing in background thread
+            int totalImages = await Task.Run(() =>
+            {
+                int total = 0;
+
+                foreach (var subDir in subDirs)
+                {
+                    string folderName = Path.GetFileName(subDir);
+                    string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+
+                    if (!File.Exists(rspPath))
+                        continue;
+
+                    var camPaths = selectedCams
+                        .Select(cam => Path.Combine(subDir, cam))
+                        .Where(Directory.Exists)
+                        .ToArray();
+
+                    if (camPaths.Length == 0)
+                        continue;
+
+                    total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1);
                 }
 
-                progressBar1.Value = 0;
-                progressBar1.Visible = true;
+                return total;
+            });
 
-                // Run EXIF processing in background thread
-                int totalImages = await Task.Run(() =>
-                {
-                    int total = 0;
-                    var subDirs = Directory.GetDirectories(parentDir);
-
-                    foreach (var subDir in subDirs)
-                    {
-                        string folderName = Path.GetFileName(subDir);
-                        string rspPath = Path.Combine(parentDir, folderName + ".RSP");
-
-                        if (!File.Exists(rspPath))
-                            continue;
-
-                        // Get camera subfolders like Cam1–Cam4
-                        var camPaths = selectedCams
-                            .Select(cam => Path.Combine(subDir, cam))
-                            .Where(Directory.Exists)
-                            .ToArray();
-
-                        if (camPaths.Length == 0)
-                            continue;
-
-                        total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1);
-                    }
-
-                    return total;
-                });
-
-                MessageBox.Show($"EXIF batch processing completed.\n\n{totalImages} images processed.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            MessageBox.Show($"EXIF batch processing completed.\n\n{totalImages} images processed.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         public static int ProcessAllRoutesInFolder(string parentFolder, ProgressBar progressBar)
