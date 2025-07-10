@@ -249,5 +249,74 @@ namespace EXIF_BatchGPSInserter
             return 0;
         }
 
+        public static int ProcessLcmsImagesFromHdcFile(string routeFolder, string hdcPath, ProgressBar progressBar)
+        {
+            var gpsPoints = ParseRspFile(hdcPath); // Use your existing ParseRspFile — works for both RSP and HDC
+            if (gpsPoints.Count == 0) return 0;
+
+            var interpolated = InterpolateWithoutHeading(gpsPoints, 10.0);
+            int total = 0;
+
+            var imageDir = Directory.GetFiles(routeFolder, "LcmsResult_ImageInt_*.JPG", SearchOption.AllDirectories)
+                                    .OrderBy(f => f)
+                                    .ToList();
+
+            progressBar?.Invoke((MethodInvoker)(() => {
+                progressBar.Maximum = imageDir.Count;
+                progressBar.Value = 0;
+            }));
+
+            for (int i = 0; i < imageDir.Count; i++)
+            {
+                var filePath = imageDir[i];
+                var fileName = Path.GetFileNameWithoutExtension(filePath);
+                var suffix = fileName.Substring(fileName.LastIndexOf('_') + 1);
+
+                if (!int.TryParse(suffix, out int imgIndex)) continue;
+
+                double imgDistance = (imgIndex + 1) * 10.0; // e.g., 000000 is 10m, 000001 is 20m, etc.
+
+                var gps = interpolated.OrderBy(pt => Math.Abs(pt.DistanceMeters - imgDistance)).First();
+
+                try
+                {
+                    var file = ExifLibrary.ImageFile.FromFile(filePath);
+                    RemoveGpsTags(file);
+
+                    double absLat = Math.Abs(gps.Latitude);
+                    double absLng = Math.Abs(gps.Longitude);
+                    float? absHeading = gps.Heading.HasValue && gps.Heading.Value >= 0 ? (float?)gps.Heading.Value : null;
+
+                    ConvertToDMS(absLat, out int latDeg, out int latMin, out float latSec);
+                    ConvertToDMS(absLng, out int lngDeg, out int lngMin, out float lngSec);
+
+                    file.Properties.Add(ExifTag.GPSLatitude, latDeg, latMin, latSec);
+                    file.Properties.Add(ExifTag.GPSLatitudeRef, gps.LatitudeDirection);
+                    file.Properties.Add(ExifTag.GPSLongitude, lngDeg, lngMin, lngSec);
+                    file.Properties.Add(ExifTag.GPSLongitudeRef, gps.LongitudeDirection);
+
+                    if (absHeading.HasValue)
+                    {
+                        file.Properties.Add(ExifTag.GPSImgDirection, absHeading.Value);
+                        file.Properties.Add(ExifTag.GPSImgDirectionRef, "T");
+                    }
+
+                    file.Save(filePath);
+                    total++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to write EXIF for {filePath}: {ex.Message}");
+                }
+
+                progressBar?.Invoke((MethodInvoker)(() =>
+                {
+                    if (progressBar.Value < progressBar.Maximum)
+                        progressBar.Value += 1;
+                }));
+            }
+
+            return total;
+        }
     }
 }
