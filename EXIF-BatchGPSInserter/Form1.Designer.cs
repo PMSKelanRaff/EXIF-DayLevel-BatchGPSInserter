@@ -33,6 +33,7 @@ namespace EXIF_BatchGPSInserter
             this.Startbtn = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.camFoldersCheckedListBox = new System.Windows.Forms.CheckedListBox();
+            this.directoryTextBox = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // Startbtn
@@ -57,20 +58,29 @@ namespace EXIF_BatchGPSInserter
             this.camFoldersCheckedListBox.FormattingEnabled = true;
             this.camFoldersCheckedListBox.Location = new System.Drawing.Point(12, 12);
             this.camFoldersCheckedListBox.Name = "camFoldersCheckedListBox";
-            this.camFoldersCheckedListBox.Size = new System.Drawing.Size(218, 64);
+            this.camFoldersCheckedListBox.Size = new System.Drawing.Size(218, 79);
             this.camFoldersCheckedListBox.TabIndex = 8;
+            // 
+            // directoryTextBox
+            // 
+            this.directoryTextBox.Location = new System.Drawing.Point(12, 112);
+            this.directoryTextBox.Name = "directoryTextBox";
+            this.directoryTextBox.Size = new System.Drawing.Size(332, 20);
+            this.directoryTextBox.TabIndex = 9;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(357, 169);
+            this.Controls.Add(this.directoryTextBox);
             this.Controls.Add(this.camFoldersCheckedListBox);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.Startbtn);
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "EXIF-DayLevel-BatchProcessor";
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -78,6 +88,7 @@ namespace EXIF_BatchGPSInserter
         private System.Windows.Forms.Button Startbtn;
         private System.Windows.Forms.ProgressBar progressBar1;
         private System.Windows.Forms.CheckedListBox camFoldersCheckedListBox;
+        private System.Windows.Forms.TextBox directoryTextBox;
     }
 }
 

@@ -21,6 +21,7 @@ namespace EXIF_BatchGPSInserter
             camFoldersCheckedListBox.Items.Add("Cam2", true);
             camFoldersCheckedListBox.Items.Add("Cam3", true);
             camFoldersCheckedListBox.Items.Add("Cam4", true);
+            camFoldersCheckedListBox.Items.Add("HDC", true);
         }
 
         private async void Startbtn_Click(object sender, EventArgs e)
@@ -35,12 +36,17 @@ namespace EXIF_BatchGPSInserter
 
             string parentDir = dialog.SelectedPath;
 
-            // Get selected camera folders
-            var selectedCams = camFoldersCheckedListBox.CheckedItems.Cast<string>().ToList();
+            // Populate the directory text box
+            directoryTextBox.Text = parentDir;
 
-            if (selectedCams.Count == 0)
+            // Get selected items from checkbox list
+            var selectedItems = camFoldersCheckedListBox.CheckedItems.Cast<string>().ToList();
+            var selectedCams = selectedItems.Where(item => item.StartsWith("Cam")).ToList();
+            bool processHdc = selectedItems.Contains("HDC");
+
+            if (selectedCams.Count == 0 && !processHdc)
             {
-                MessageBox.Show("Please select at least one camera folder (Cam1–Cam4).", "No Cameras Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please select at least one camera folder (Cam1–Cam4) or 'HDC'.", "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -49,93 +55,105 @@ namespace EXIF_BatchGPSInserter
 
             var subDirs = Directory.GetDirectories(parentDir);
 
-            // Step 1: Count total JPG files across all selected Cam subfolders
+            // Step 1: Count total JPG files in Cam folders
             int totalFiles = 0;
-            foreach (var subDir in subDirs)
+            if (selectedCams.Count > 0)
             {
-                string folderName = Path.GetFileName(subDir);
-                string rspPath = Path.Combine(parentDir, folderName + ".RSP");
-
-                if (!File.Exists(rspPath))
-                    continue;
-
-                var camPaths = selectedCams
-                    .Select(cam => Path.Combine(subDir, cam))
-                    .Where(Directory.Exists)
-                    .ToArray();
-
-                foreach (var camPath in camPaths)
-                {
-                    totalFiles += Directory.GetFiles(camPath, "*.JPG").Length;
-                }
-            }
-
-            // Step 2: Count total LcmsResult_ImageInt_*.JPG files in all subfolders
-            int totalLcmsFiles = 0;
-            foreach (var subDir in subDirs)
-            {
-                var lcmsFiles = Directory.GetFiles(subDir, "LcmsResult_ImageInt_*.JPG", SearchOption.AllDirectories);
-                totalLcmsFiles += lcmsFiles.Length;
-            }
-
-            progressBar1.Maximum = totalFiles + totalLcmsFiles;
-            progressBar1.Value = 0;
-
-            // Step 3: Process RSP + Cam folders
-            int totalImages = await Task.Run(() =>
-            {
-                int total = 0;
-
                 foreach (var subDir in subDirs)
                 {
                     string folderName = Path.GetFileName(subDir);
                     string rspPath = Path.Combine(parentDir, folderName + ".RSP");
 
-                    if (!File.Exists(rspPath))
-                        continue;
+                    if (!File.Exists(rspPath)) continue;
 
                     var camPaths = selectedCams
                         .Select(cam => Path.Combine(subDir, cam))
                         .Where(Directory.Exists)
                         .ToArray();
 
-                    if (camPaths.Length == 0)
-                        continue;
-
-                    total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1);
+                    foreach (var camPath in camPaths)
+                    {
+                        totalFiles += Directory.GetFiles(camPath, "*.JPG").Length;
+                    }
                 }
+            }
 
-                return total;
-            });
-
-            // Step 4: Process LcmsResult_ImageInt_*.JPG images using .HDC files
-            int totalLcmsProcessed = await Task.Run(() =>
+            // Step 2: Count total HDC-related JPG files
+            int totalLcmsFiles = 0;
+            if (processHdc)
             {
-                int total = 0;
-
                 foreach (var subDir in subDirs)
                 {
-                    string folderName = Path.GetFileName(subDir);
-                    string rspPath = Path.Combine(parentDir, folderName + ".RSP");
-
-                    if (!File.Exists(rspPath))
-                        continue;
-
-                    total += ExifBatchProcessor.ProcessLcmsImagesFromHdcFile(subDir, rspPath, progressBar1);
+                    var lcmsFiles = Directory.GetFiles(subDir, "LcmsResult_ImageInt_*.JPG", SearchOption.AllDirectories);
+                    totalLcmsFiles += lcmsFiles.Length;
                 }
+            }
 
-                return total;
-            });
+            progressBar1.Maximum = totalFiles + totalLcmsFiles;
+            progressBar1.Value = 0;
 
-            MessageBox.Show(
-                $"EXIF batch processing completed.\n\n" +
-                $"{totalImages} images processed from Cam folders.\n" +
-                $"{totalLcmsProcessed} LcmsResult images processed from .HDC files.",
-                "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Step 3: Process Cam folders
+            int totalImages = 0;
+            if (selectedCams.Count > 0)
+            {
+                totalImages = await Task.Run(() =>
+                {
+                    int total = 0;
+
+                    foreach (var subDir in subDirs)
+                    {
+                        string folderName = Path.GetFileName(subDir);
+                        string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+
+                        if (!File.Exists(rspPath)) continue;
+
+                        var camPaths = selectedCams
+                            .Select(cam => Path.Combine(subDir, cam))
+                            .Where(Directory.Exists)
+                            .ToArray();
+
+                        if (camPaths.Length == 0) continue;
+
+                        total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1);
+                    }
+
+                    return total;
+                });
+            }
+
+            // Step 4: Process HDC files if selected
+            int totalLcmsProcessed = 0;
+            if (processHdc)
+            {
+                totalLcmsProcessed = await Task.Run(() =>
+                {
+                    int total = 0;
+
+                    foreach (var subDir in subDirs)
+                    {
+                        string folderName = Path.GetFileName(subDir);
+                        string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+
+                        if (!File.Exists(rspPath)) continue;
+
+                        total += ExifBatchProcessor.ProcessLcmsImagesFromHdcFile(subDir, rspPath, progressBar1);
+                    }
+
+                    return total;
+                });
+            }
+
+            // Display MessageBox with results
+            string message = $"EXIF batch processing completed.\n\n{totalImages} images processed from Cam folders.";
+            if (processHdc)
+                message += $"\n{totalLcmsProcessed} LcmsResult images processed from .HDC files.";
+
+            MessageBox.Show(message, "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             progressBar1.Value = 0;
             progressBar1.Visible = false;
         }
+
 
         public static int ProcessAllRoutesInFolder(string parentFolder, ProgressBar progressBar)
         {
