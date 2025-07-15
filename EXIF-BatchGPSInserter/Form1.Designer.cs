@@ -30,6 +30,7 @@ namespace EXIF_BatchGPSInserter
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.Startbtn = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.camFoldersCheckedListBox = new System.Windows.Forms.CheckedListBox();
@@ -77,6 +78,7 @@ namespace EXIF_BatchGPSInserter
             this.Controls.Add(this.camFoldersCheckedListBox);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.Startbtn);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Form1";
             this.Text = "EXIF-DayLevel-BatchProcessor";
             this.ResumeLayout(false);
