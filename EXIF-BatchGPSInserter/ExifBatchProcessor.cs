@@ -18,24 +18,40 @@ namespace EXIF_BatchGPSInserter
 
             var interpolated = InterpolateWithoutHeading(gpsPoints, 5.0);
             int total = 0;
-            int updateFrequency = 1; // only update every 1 images
+            int updateFrequency = 1;
             int imageCounter = 0;
+
+            // Route folder (e.g., 40662 NB IL-130 NB-PL) and parent day folder
+            string firstCamFolder = camFolders[0];
+            string routeFolder = Directory.GetParent(firstCamFolder).FullName; // e.g., 40662 NB IL-130 NB-PL
+            string dayFolder = Directory.GetParent(routeFolder).FullName;      // e.g., Day test
+
+            string outputRoot = Path.Combine(Directory.GetParent(dayFolder).FullName, Path.GetFileName(dayFolder) + "_processed");
+            Directory.CreateDirectory(outputRoot);
 
             foreach (string camFolder in camFolders)
             {
-                var jpgFiles = Directory.GetFiles(camFolder, "*.JPG")
+                var jpgFiles = Directory.GetFiles(camFolder, "*.JPG", SearchOption.TopDirectoryOnly)
                                         .OrderBy(f => ExtractDistanceFromFilename(f))
                                         .ToList();
 
                 foreach (var imagePath in jpgFiles)
                 {
-                    double imgDist = ExtractDistanceFromFilename(imagePath);
-                    imgDist *= 0.3048; // Convert feet to meters
+                    double imgDist = ExtractDistanceFromFilename(imagePath) * 0.3048; // Convert feet → meters
                     var gps = interpolated.OrderBy(pt => Math.Abs(pt.DistanceMeters - imgDist)).First();
 
                     try
                     {
-                        var file = ExifLibrary.ImageFile.FromFile(imagePath);
+                        // Compute relative path from route folder to preserve route/Cam structure
+                        string relativePath = imagePath.Substring(routeFolder.Length).TrimStart(Path.DirectorySeparatorChar);
+                        string copyPath = Path.Combine(outputRoot, Path.GetFileName(routeFolder), relativePath);
+                        Directory.CreateDirectory(Path.GetDirectoryName(copyPath));
+
+                        // Copy original image
+                        File.Copy(imagePath, copyPath, true);
+
+                        // Load copy and apply EXIF
+                        var file = ExifLibrary.ImageFile.FromFile(copyPath);
 
                         if (!forceUpdate && HasGpsTags(file)) continue;
                         RemoveGpsTags(file);
@@ -58,7 +74,7 @@ namespace EXIF_BatchGPSInserter
                             file.Properties.Add(ExifTag.GPSImgDirectionRef, "T");
                         }
 
-                        file.Save(imagePath);
+                        file.Save(copyPath);
                         total++;
                     }
                     catch (Exception ex)
@@ -78,7 +94,7 @@ namespace EXIF_BatchGPSInserter
                 }
             }
 
-            // Final adjustment in case we undershot
+            // Final progress adjustment
             if (progressBar != null)
             {
                 progressBar.Invoke((MethodInvoker)(() =>
@@ -251,58 +267,78 @@ namespace EXIF_BatchGPSInserter
 
         public static int ProcessLcmsImagesFromHdcFile(string routeFolder, string hdcPath, ProgressBar progressBar)
         {
-            var gpsPoints = ParseRspFile(hdcPath); // Use your existing ParseRspFile — works for both RSP and HDC
+            var gpsPoints = ParseRspFile(hdcPath); // works for both RSP and HDC
             if (gpsPoints.Count == 0) return 0;
 
             var interpolated = InterpolateWithoutHeading(gpsPoints, 10.0);
             int total = 0;
 
-            var imageDir = Directory.GetFiles(routeFolder, "LcmsResult_ImageInt_*.JPG", SearchOption.AllDirectories)
-                                    .OrderBy(f => f)
-                                    .ToList();
+            // Locate the original HDC folder
+            string originalHdcFolder = Path.Combine(routeFolder, "HDC");
+            if (!Directory.Exists(originalHdcFolder))
+                return 0;
 
-            progressBar?.Invoke((MethodInvoker)(() => {
-                progressBar.Maximum = imageDir.Count;
+            var imageFiles = Directory.GetFiles(originalHdcFolder, "*.JPG", SearchOption.TopDirectoryOnly)
+                                      .OrderBy(f => f)
+                                      .ToList();
+
+            // Determine _processed root folder (sibling of day folder)
+            string dayFolder = Directory.GetParent(routeFolder).FullName;       // e.g., Day test
+            string outputRoot = Path.Combine(Directory.GetParent(dayFolder).FullName, Path.GetFileName(dayFolder) + "_processed");
+            string outputHdcFolder = Path.Combine(outputRoot, Path.GetFileName(routeFolder), "HDC");
+            Directory.CreateDirectory(outputHdcFolder);
+
+            progressBar?.Invoke((MethodInvoker)(() =>
+            {
+                progressBar.Maximum = imageFiles.Count;
                 progressBar.Value = 0;
             }));
 
-            for (int i = 0; i < imageDir.Count; i++)
+            foreach (var filePath in imageFiles)
             {
-                var filePath = imageDir[i];
-                var fileName = Path.GetFileNameWithoutExtension(filePath);
-                var suffix = fileName.Substring(fileName.LastIndexOf('_') + 1);
-
-                if (!int.TryParse(suffix, out int imgIndex)) continue;
-
-                double imgDistance = (imgIndex + 1) * 10.0; // e.g., 000000 is 10m, 000001 is 20m, etc.
-
-                var gps = interpolated.OrderBy(pt => Math.Abs(pt.DistanceMeters - imgDistance)).First();
-
                 try
                 {
-                    var file = ExifLibrary.ImageFile.FromFile(filePath);
+                    string fileName = Path.GetFileName(filePath);
+                    string copyPath = Path.Combine(outputHdcFolder, fileName);
+
+                    // Copy original first
+                    File.Copy(filePath, copyPath, true);
+
+                    var file = ExifLibrary.ImageFile.FromFile(copyPath);
                     RemoveGpsTags(file);
 
-                    double absLat = Math.Abs(gps.Latitude);
-                    double absLng = Math.Abs(gps.Longitude);
-                    float? absHeading = gps.Heading.HasValue && gps.Heading.Value >= 0 ? (float?)gps.Heading.Value : null;
+                    // Determine distance for this image (based on filename)
+                    string suffix = Path.GetFileNameWithoutExtension(fileName)
+                                        .Split('_')
+                                        .LastOrDefault();
+                    if (!int.TryParse(suffix, out int imgIndex))
+                        imgIndex = 0;
 
-                    ConvertToDMS(absLat, out int latDeg, out int latMin, out float latSec);
-                    ConvertToDMS(absLng, out int lngDeg, out int lngMin, out float lngSec);
-
-                    file.Properties.Add(ExifTag.GPSLatitude, latDeg, latMin, latSec);
-                    file.Properties.Add(ExifTag.GPSLatitudeRef, gps.LatitudeDirection);
-                    file.Properties.Add(ExifTag.GPSLongitude, lngDeg, lngMin, lngSec);
-                    file.Properties.Add(ExifTag.GPSLongitudeRef, gps.LongitudeDirection);
-
-                    if (absHeading.HasValue)
+                    double imgDistance = (imgIndex + 1) * 10.0; // e.g., 000000 is 10m, 000001 is 20m, etc.
+                    var gps = interpolated.OrderBy(pt => Math.Abs(pt.DistanceMeters - imgDistance)).FirstOrDefault();
+                    if (gps != null)
                     {
-                        file.Properties.Add(ExifTag.GPSImgDirection, absHeading.Value);
-                        file.Properties.Add(ExifTag.GPSImgDirectionRef, "T");
-                    }
+                        double absLat = Math.Abs(gps.Latitude);
+                        double absLng = Math.Abs(gps.Longitude);
+                        float? absHeading = gps.Heading.HasValue && gps.Heading.Value >= 0 ? (float?)gps.Heading.Value : null;
 
-                    file.Save(filePath);
-                    total++;
+                        ConvertToDMS(absLat, out int latDeg, out int latMin, out float latSec);
+                        ConvertToDMS(absLng, out int lngDeg, out int lngMin, out float lngSec);
+
+                        file.Properties.Add(ExifTag.GPSLatitude, latDeg, latMin, latSec);
+                        file.Properties.Add(ExifTag.GPSLatitudeRef, gps.LatitudeDirection);
+                        file.Properties.Add(ExifTag.GPSLongitude, lngDeg, lngMin, lngSec);
+                        file.Properties.Add(ExifTag.GPSLongitudeRef, gps.LongitudeDirection);
+
+                        if (absHeading.HasValue)
+                        {
+                            file.Properties.Add(ExifTag.GPSImgDirection, absHeading.Value);
+                            file.Properties.Add(ExifTag.GPSImgDirectionRef, "T");
+                        }
+
+                        file.Save(copyPath);
+                        total++;
+                    }
                 }
                 catch (Exception ex)
                 {
