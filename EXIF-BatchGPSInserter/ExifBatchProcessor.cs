@@ -9,7 +9,7 @@ namespace EXIF_BatchGPSInserter
 {
     public static class ExifBatchProcessor
     {
-        public static int Process(string[] camFolders, string rspFile, ProgressBar progressBar)
+        public static int Process(string[] camFolders, string rspFile, ProgressBar progressBar, bool copyToProcessed = true)
         {
             bool forceUpdate = true;
 
@@ -27,7 +27,8 @@ namespace EXIF_BatchGPSInserter
             string dayFolder = Directory.GetParent(routeFolder).FullName;      // e.g., Day test
 
             string outputRoot = Path.Combine(Directory.GetParent(dayFolder).FullName, Path.GetFileName(dayFolder) + "_processed");
-            Directory.CreateDirectory(outputRoot);
+            if (copyToProcessed)
+                Directory.CreateDirectory(outputRoot);
 
             foreach (string camFolder in camFolders)
             {
@@ -42,16 +43,20 @@ namespace EXIF_BatchGPSInserter
 
                     try
                     {
-                        // Compute relative path from route folder to preserve route/Cam structure
-                        string relativePath = imagePath.Substring(routeFolder.Length).TrimStart(Path.DirectorySeparatorChar);
-                        string copyPath = Path.Combine(outputRoot, Path.GetFileName(routeFolder), relativePath);
-                        Directory.CreateDirectory(Path.GetDirectoryName(copyPath));
+                        string targetPath = imagePath;
 
-                        // Copy original image
-                        File.Copy(imagePath, copyPath, true);
+                        if (copyToProcessed)
+                        {
+                            // Compute relative path from route folder to preserve route/Cam structure
+                            string relativePath = imagePath.Substring(routeFolder.Length).TrimStart(Path.DirectorySeparatorChar);
+                            targetPath = Path.Combine(outputRoot, Path.GetFileName(routeFolder), relativePath);
 
-                        // Load copy and apply EXIF
-                        var file = ExifLibrary.ImageFile.FromFile(copyPath);
+                            Directory.CreateDirectory(Path.GetDirectoryName(targetPath));
+                            File.Copy(imagePath, targetPath, true);
+                        }
+
+                        // Load image (copy or original depending on mode)
+                        var file = ExifLibrary.ImageFile.FromFile(targetPath);
 
                         if (!forceUpdate && HasGpsTags(file)) continue;
                         RemoveGpsTags(file);
@@ -74,7 +79,7 @@ namespace EXIF_BatchGPSInserter
                             file.Properties.Add(ExifTag.GPSImgDirectionRef, "T");
                         }
 
-                        file.Save(copyPath);
+                        file.Save(targetPath);
                         total++;
                     }
                     catch (Exception ex)
@@ -105,6 +110,7 @@ namespace EXIF_BatchGPSInserter
 
             return total;
         }
+
 
         private static bool HasGpsTags(ImageFile file)
         {
@@ -265,7 +271,7 @@ namespace EXIF_BatchGPSInserter
             return 0;
         }
 
-        public static int ProcessLcmsImagesFromHdcFile(string routeFolder, string hdcPath, ProgressBar progressBar)
+        public static int ProcessLcmsImagesFromHdcFile(string routeFolder, string hdcPath, ProgressBar progressBar, bool copyToProcessed = true)
         {
             var gpsPoints = ParseRspFile(hdcPath); // works for both RSP and HDC
             if (gpsPoints.Count == 0) return 0;
@@ -282,11 +288,24 @@ namespace EXIF_BatchGPSInserter
                                       .OrderBy(f => f)
                                       .ToList();
 
-            // Determine _processed root folder (sibling of day folder)
-            string dayFolder = Directory.GetParent(routeFolder).FullName;       // e.g., Day test
-            string outputRoot = Path.Combine(Directory.GetParent(dayFolder).FullName, Path.GetFileName(dayFolder) + "_processed");
-            string outputHdcFolder = Path.Combine(outputRoot, Path.GetFileName(routeFolder), "HDC");
-            Directory.CreateDirectory(outputHdcFolder);
+            // Decide output folder
+            string outputHdcFolder;
+            if (copyToProcessed)
+            {
+                // _processed sibling of day folder
+                string dayFolder = Directory.GetParent(routeFolder).FullName;       // e.g., Day test
+                string outputRoot = Path.Combine(
+                    Directory.GetParent(dayFolder).FullName,
+                    Path.GetFileName(dayFolder) + "_processed");
+
+                outputHdcFolder = Path.Combine(outputRoot, Path.GetFileName(routeFolder), "HDC");
+                Directory.CreateDirectory(outputHdcFolder);
+            }
+            else
+            {
+                // Write in-place into original HDC folder
+                outputHdcFolder = originalHdcFolder;
+            }
 
             progressBar?.Invoke((MethodInvoker)(() =>
             {
@@ -301,8 +320,11 @@ namespace EXIF_BatchGPSInserter
                     string fileName = Path.GetFileName(filePath);
                     string copyPath = Path.Combine(outputHdcFolder, fileName);
 
-                    // Copy original first
-                    File.Copy(filePath, copyPath, true);
+                    // If copy mode, copy first. If update-in-place, work directly on the original.
+                    if (copyToProcessed)
+                        File.Copy(filePath, copyPath, true);
+                    else
+                        copyPath = filePath;
 
                     var file = ExifLibrary.ImageFile.FromFile(copyPath);
                     RemoveGpsTags(file);
@@ -345,14 +367,17 @@ namespace EXIF_BatchGPSInserter
                     Console.WriteLine($"Failed to write EXIF for {filePath}: {ex.Message}");
                 }
 
-                progressBar?.Invoke((MethodInvoker)(() =>
-                {
-                    if (progressBar.Value < progressBar.Maximum)
-                        progressBar.Value += 1;
-                }));
+                
             }
+
+            progressBar?.Invoke((MethodInvoker)(() =>
+            {
+                if (progressBar.Value < progressBar.Maximum)
+                    progressBar.Value += 1;
+            }));
 
             return total;
         }
+
     }
 }

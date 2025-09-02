@@ -35,6 +35,7 @@ namespace EXIF_BatchGPSInserter
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.camFoldersCheckedListBox = new System.Windows.Forms.CheckedListBox();
             this.directoryTextBox = new System.Windows.Forms.TextBox();
+            this.checkBox_override_original = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // Startbtn
@@ -69,11 +70,22 @@ namespace EXIF_BatchGPSInserter
             this.directoryTextBox.Size = new System.Drawing.Size(332, 20);
             this.directoryTextBox.TabIndex = 9;
             // 
+            // checkBox_override_original
+            // 
+            this.checkBox_override_original.AutoSize = true;
+            this.checkBox_override_original.Location = new System.Drawing.Point(241, 89);
+            this.checkBox_override_original.Name = "checkBox_override_original";
+            this.checkBox_override_original.Size = new System.Drawing.Size(104, 17);
+            this.checkBox_override_original.TabIndex = 10;
+            this.checkBox_override_original.Text = "Override Original";
+            this.checkBox_override_original.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(357, 169);
+            this.Controls.Add(this.checkBox_override_original);
             this.Controls.Add(this.directoryTextBox);
             this.Controls.Add(this.camFoldersCheckedListBox);
             this.Controls.Add(this.progressBar1);
@@ -91,6 +103,7 @@ namespace EXIF_BatchGPSInserter
         private System.Windows.Forms.ProgressBar progressBar1;
         private System.Windows.Forms.CheckedListBox camFoldersCheckedListBox;
         private System.Windows.Forms.TextBox directoryTextBox;
+        private System.Windows.Forms.CheckBox checkBox_override_original;
     }
 }
 

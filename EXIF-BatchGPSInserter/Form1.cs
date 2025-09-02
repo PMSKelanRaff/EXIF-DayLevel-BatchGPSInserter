@@ -114,7 +114,8 @@ namespace EXIF_BatchGPSInserter
 
                         if (camPaths.Length == 0) continue;
 
-                        total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1);
+                        bool copyToProcessed = !checkBox_override_original.Checked;
+                        total += ExifBatchProcessor.Process(camPaths, rspPath, progressBar1, copyToProcessed);
                     }
 
                     return total;
@@ -136,7 +137,9 @@ namespace EXIF_BatchGPSInserter
 
                         if (!File.Exists(rspPath)) continue;
 
-                        total += ExifBatchProcessor.ProcessLcmsImagesFromHdcFile(subDir, rspPath, progressBar1);
+                        bool copyToProcessed = !checkBox_override_original.Checked;
+
+                        total += ExifBatchProcessor.ProcessLcmsImagesFromHdcFile(subDir, rspPath, progressBar1, copyToProcessed);
                     }
 
                     return total;
