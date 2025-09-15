@@ -24,20 +24,58 @@ namespace EXIF_BatchGPSInserter
             camFoldersCheckedListBox.Items.Add("HDC", true);
         }
 
+        private void browseParentBtn_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new VistaFolderBrowserDialog
+            {
+                Description = "Select the parent folder containing Cam folders and/or HDC",
+                UseDescriptionForTitle = true
+            })
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    directoryTextBox.Text = dialog.SelectedPath;
+                }
+            }
+        }
+
+        private void browseRspBtn_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new VistaFolderBrowserDialog
+            {
+                Description = "Select the folder containing your .RSP files",
+                UseDescriptionForTitle = true
+            })
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    rspDirectoryTextBox.Text = dialog.SelectedPath;
+                }
+            }
+        }
+
         private async void Startbtn_Click(object sender, EventArgs e)
         {
-            var dialog = new VistaFolderBrowserDialog
+            string parentDir = directoryTextBox.Text;
+            string rspDir = rspDirectoryTextBox.Text;
+
+            if (string.IsNullOrWhiteSpace(parentDir) || !Directory.Exists(parentDir))
             {
-                Description = "Select the parent folder containing multiple RSP/image folders",
-                UseDescriptionForTitle = true
-            };
+                MessageBox.Show("Please select a valid parent folder first.",
+                                "Invalid Folder",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return;
+            }
 
-            if (dialog.ShowDialog() != DialogResult.OK) return;
-
-            string parentDir = dialog.SelectedPath;
-
-            // Populate the directory text box
-            directoryTextBox.Text = parentDir;
+            if (string.IsNullOrWhiteSpace(rspDir) || !Directory.Exists(rspDir))
+            {
+                MessageBox.Show("Please select a valid folder containing RSP files.",
+                                "Invalid RSP Folder",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return;
+            }
 
             // Get selected items from checkbox list
             var selectedItems = camFoldersCheckedListBox.CheckedItems.Cast<string>().ToList();
@@ -46,7 +84,10 @@ namespace EXIF_BatchGPSInserter
 
             if (selectedCams.Count == 0 && !processHdc)
             {
-                MessageBox.Show("Please select at least one camera folder (Cam1–Cam4) or 'HDC'.", "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please select at least one camera folder (Cam1–Cam4) or 'HDC'.",
+                                "Nothing Selected",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
                 return;
             }
 
@@ -62,7 +103,7 @@ namespace EXIF_BatchGPSInserter
                 foreach (var subDir in subDirs)
                 {
                     string folderName = Path.GetFileName(subDir);
-                    string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+                    string rspPath = Path.Combine(rspDir, folderName + ".RSP");
 
                     if (!File.Exists(rspPath)) continue;
 
@@ -103,7 +144,7 @@ namespace EXIF_BatchGPSInserter
                     foreach (var subDir in subDirs)
                     {
                         string folderName = Path.GetFileName(subDir);
-                        string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+                        string rspPath = Path.Combine(rspDir, folderName + ".RSP");
 
                         if (!File.Exists(rspPath)) continue;
 
@@ -133,7 +174,7 @@ namespace EXIF_BatchGPSInserter
                     foreach (var subDir in subDirs)
                     {
                         string folderName = Path.GetFileName(subDir);
-                        string rspPath = Path.Combine(parentDir, folderName + ".RSP");
+                        string rspPath = Path.Combine(rspDir, folderName + ".RSP");
 
                         if (!File.Exists(rspPath)) continue;
 
@@ -180,7 +221,11 @@ namespace EXIF_BatchGPSInserter
 
             return totalWritten;
         }
+
+  
     }
+
+
 }
 
 
